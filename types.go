@@ -436,6 +436,11 @@ type ChatFullInfo struct {
 	//
 	// optional
 	Permissions *ChatPermissions `json:"permissions,omitempty"`
+	// True, if paid media messages can be sent or forwarded to the channel chat.
+	// The field is available only for channel chats.
+	//
+	// optional
+	CanSendPaidMedia bool `json:"can_send_paid_media,omitempty"`
 	// SlowModeDelay is for supergroups, the minimum allowed delay between
 	// consecutive messages sent by each unprivileged user. Returned only in
 	// getChat.
@@ -673,6 +678,10 @@ type Message struct {
 	//
 	// optional
 	Document *Document `json:"document,omitempty"`
+	// Message contains paid media; information about the paid media
+	//
+	// optional
+	PaidMedia *PaidMediaInfo `json:"paid_media,omitempty"`
 	// Photo message is a photo, available sizes of the photo;
 	//
 	// optional
@@ -817,6 +826,10 @@ type Message struct {
 	//
 	// optional
 	SuccessfulPayment *SuccessfulPayment `json:"successful_payment,omitempty"`
+	// Message is a service message about a refunded payment, information about the payment
+	//
+	// optional
+	RefundedPayment *RefundedPayment `json:"refunded_payment,omitempty"`
 	// UsersShared is a service message: the users were shared with the bot
 	//
 	// optional
@@ -1153,6 +1166,10 @@ type ExternalReplyInfo struct {
 	//
 	// optional
 	Document *Document `json:"document,omitempty"`
+	// Message contains paid media; information about the paid media
+	//
+	// optional
+	PaidMedia *PaidMediaInfo `json:"paid_media,omitempty"`
 	// Photo message is a photo, available sizes of the photo;
 	//
 	// optional
@@ -1512,6 +1529,47 @@ type Voice struct {
 	//
 	// optional
 	FileSize int64 `json:"file_size,omitempty"`
+}
+
+// PaidMediaInfo describes the paid media added to a message.
+type PaidMediaInfo struct {
+	// The number of Telegram Stars that must be paid to buy access to the media
+	StarCount int64 `json:"star_count"`
+	// Information about the paid media
+	PaidMedia []PaidMedia `json:"paid_media"`
+}
+
+// This object describes paid media. Currently, it can be one of
+//   - PaidMediaPreview
+//   - PaidMediaPhoto
+//   - PaidMediaVideo
+type PaidMedia struct {
+	// Type of the paid media, should be one of:
+	//   - "photo"
+	//   - "video"
+	//   - "preview"
+	Type string `json:"type"`
+	// PaidMediaPreview only.
+	// Media width as defined by the sender.
+	//
+	// optional
+	Width int64 `json:"width,omitempty"`
+	// PaidMediaPreview only.
+	// Media height as defined by the sender
+	//
+	// optional
+	Height int64 `json:"height,omitempty"`
+	// PaidMediaPreview only.
+	// Duration of the media in seconds as defined by the sender
+	//
+	// optional
+	Duration int64 `json:"duration,omitempty"`
+	// PaidMediaPhoto only.
+	// The photo
+	Photo []PhotoSize `json:"photo,omitempty"`
+	// PaidMediaVideo only.
+	// The video
+	Video *Video `json:"video,omitempty"`
 }
 
 // Contact represents a phone contact.
@@ -2374,6 +2432,8 @@ type InlineKeyboardButton struct {
 	// Text label text on the button
 	Text string `json:"text"`
 	// URL HTTP or tg:// url to be opened when button is pressed.
+	// Links tg://user?id=<user_id> can be used to mention a user by their identifier without using a username,
+	// if this is allowed by their privacy settings.
 	//
 	// optional
 	URL *string `json:"url,omitempty"`
@@ -2389,6 +2449,7 @@ type InlineKeyboardButton struct {
 	// WebApp is the Description of the Web App that will be launched when the user presses the button.
 	// The Web App will be able to send an arbitrary message on behalf of the user using the method
 	// answerWebAppQuery. Available only in private chats between a user and the bot.
+	// Not supported for messages sent on behalf of a Telegram Business account.
 	//
 	// optional
 	WebApp *WebAppInfo `json:"web_app,omitempty"`
@@ -2401,6 +2462,7 @@ type InlineKeyboardButton struct {
 	// Especially useful when combined with switch_pm… actions – in this case
 	// the user will be automatically returned to the chat they switched from,
 	// skipping the chat selection screen.
+	// Not supported for messages sent on behalf of a Telegram Business account.
 	//
 	// optional
 	SwitchInlineQuery *string `json:"switch_inline_query,omitempty"`
@@ -2410,12 +2472,14 @@ type InlineKeyboardButton struct {
 	//
 	// This offers a quick way for the user to open your bot in inline mode
 	// in the same chat – good for selecting something from multiple options.
+	// Not supported for messages sent on behalf of a Telegram Business account.
 	//
 	// optional
 	SwitchInlineQueryCurrentChat *string `json:"switch_inline_query_current_chat,omitempty"`
 	//SwitchInlineQueryChosenChat If set, pressing the button will prompt the user to
 	//select one of their chats of the specified type, open that chat and insert the bot's
-	//username and the specified inline query in the input field
+	//username and the specified inline query in the input field.
+	// Not supported for messages sent on behalf of a Telegram Business account.
 	//
 	//optional
 	SwitchInlineQueryChosenChat *SwitchInlineQueryChosenChat `json:"switch_inline_query_chosen_chat,omitempty"`
@@ -3147,6 +3211,9 @@ type MenuButton struct {
 	Text string `json:"text,omitempty"`
 	// WebApp is the description of the Web App that will be launched when the
 	// user presses the button for the `web_app` type.
+	//
+	// Alternatively, a t.me link to a Web App of the bot can be specified in the object instead of the Web App's URL,
+	// in which case the Web App will be opened as if the user pressed the link.
 	WebApp *WebAppInfo `json:"web_app,omitempty"`
 }
 
@@ -3406,6 +3473,48 @@ type InputMediaDocument struct {
 	//
 	// optional
 	DisableContentTypeDetection bool `json:"disable_content_type_detection,omitempty"`
+}
+
+// This object describes the paid media to be sent. Currently, it can be one of:
+//   - InputPaidMediaPhoto
+//   - InputPaidMediaVideo
+type InputPaidMedia struct {
+	// Type of the media, must be one of:
+	//  - "photo"
+	//  - "video"
+	Type string `json:"type"`
+	// File to send. Pass a file_id to send a file that exists on the Telegram servers (recommended),
+	// pass an HTTP URL for Telegram to get a file from the Internet,
+	// or pass “attach://<file_attach_name>” to upload a new one using multipart/form-data under <file_attach_name> name.
+	// More information on https://core.telegram.org/bots/api#sending-files
+	Media RequestFileData `json:"media"`
+	// InputPaidMediaVideo only.
+	// Thumbnail of the file sent; can be ignored if thumbnail generation for the file is supported server-side.
+	// The thumbnail should be in JPEG format and less than 200 kB in size.
+	// A thumbnail's width and height should not exceed 320. Ignored if the file is not uploaded using multipart/form-data.
+	// Thumbnails can't be reused and can be only uploaded as a new file,
+	//  so you can pass “attach://<file_attach_name>” if the thumbnail was uploaded using multipart/form-data under <file_attach_name>.
+	//
+	// optional
+	Thumb RequestFileData `json:"thumbnail"`
+	// InputPaidMediaVideo only.
+	// Video width
+	//
+	// optional
+	Width int64 `json:"width,omitempty"`
+	// InputPaidMediaVideo only.
+	// Video height
+	//
+	// optional
+	Height int64 `json:"height,omitempty"`
+	// InputPaidMediaVideo only.
+	// Video duration in seconds
+	//
+	// optional
+	Duration int64 `json:"duration,omitempty"`
+	// InputPaidMediaVideo only.
+	// Pass True if the uploaded video is suitable for streaming
+	SupportsStreaming bool `json:"supports_streaming,omitempty"`
 }
 
 // Constant values for sticker types
@@ -4850,6 +4959,27 @@ type SuccessfulPayment struct {
 	ProviderPaymentChargeID string `json:"provider_payment_charge_id"`
 }
 
+// RefundPayment contains basic information about a refunded payment.
+type RefundedPayment struct {
+	// Three-letter ISO 4217 currency code (https://core.telegram.org/bots/payments#supported-currencies),
+	// or “XTR” for payments in Telegram Stars.
+	// Currently, always “XTR”
+	Currency string `json:"currency"`
+	// Total refunded price in the smallest units of the currency (integer, not float/double).
+	// For example, for a price of US$ 1.45, total_amount = 145.
+	// See the exp parameter in https://core.telegram.org/bots/payments/currencies.json,
+	// it shows the number of digits past the decimal point for each currency (2 for the majority of currencies).
+	TotalAmount int64 `json:"total_amount"`
+	// Bot-specified invoice payload
+	InvoicePayload string `json:"invoice_payload"`
+	// Telegram payment identifier
+	TelegramPaymentChargeID string `json:"telegram_payment_charge_id"`
+	// Provider payment identifier
+	//
+	// optional
+	ProviderPaymentChargeID string `json:"provider_payment_charge_id,omitempty"`
+}
+
 // ShippingQuery contains information about an incoming shipping query.
 type ShippingQuery struct {
 	// ID unique query identifier
@@ -4888,4 +5018,77 @@ type PreCheckoutQuery struct {
 	//
 	// optional
 	OrderInfo *OrderInfo `json:"order_info,omitempty"`
+}
+
+// RevenueWithdrawalState describes the state of a revenue withdrawal operation.
+// Currently, it can be one of
+//   - RevenueWithdrawalStatePending
+//   - RevenueWithdrawalStateSucceeded
+//   - RevenueWithdrawalStateFailed
+type RevenueWithdrawalState struct {
+	// Type of the state. Must be one of:
+	// 	- pending
+	// 	- succeeded
+	//  - failed
+	Type string `json:"type"`
+	// 	Date the withdrawal was completed in Unix time. Represents only in “succeeded” state
+	Date int64 `json:"date,omitempty"`
+	// An HTTPS URL that can be used to see transaction details.
+	// Represents only in “succeeded” state
+	URL string `json:"url,omitempty"`
+}
+
+// TransactionPartner describes the source of a transaction, or its recipient for outgoing transactions. Currently, it can be one of
+//   - TransactionPartnerFragment
+//   - TransactionPartnerUser
+//   - TransactionPartnerOther
+//   - TransactionPartnerTelegramAds
+type TransactionPartner struct {
+	//Type of the transaction partner. Must be one of:
+	//	- fragment
+	//	- user
+	//  - other
+	//  - telegram_ads
+	Type string `json:"type"`
+	// State of the transaction if the transaction is outgoing.
+	// Represent only in "fragment" state
+	//
+	// optional
+	WithdrawalState *RevenueWithdrawalState `json:"withdrawal_state,omitempty"`
+	// Information about the user.
+	// Represent only in "user" state
+	User *User `json:"user,omitempty"`
+	// TransactionPartnerUser only.
+	// Bot-specified invoice payload
+	//
+	// optional
+	InvoicePayload string `json:"invoice_payload,omitempty"`
+}
+
+// StarTransaction describes a Telegram Star transaction.
+type StarTransaction struct {
+	// Unique identifier of the transaction.
+	// Coincides with the identifer of the original transaction for refund transactions.
+	// Coincides with SuccessfulPayment.telegram_payment_charge_id for successful incoming payments from users.
+	ID string `json:"id"`
+	// Number of Telegram Stars transferred by the transaction
+	Amount int64 `json:"amount"`
+	// Date the transaction was created in Unix time
+	Date int64 `json:"date"`
+	// Source of an incoming transaction (e.g., a user purchasing goods or services, Fragment refunding a failed withdrawal).
+	// Only for incoming transactions
+	//
+	// optional
+	Source *TransactionPartner `json:"source,omitempty"`
+	// Receiver of an outgoing transaction (e.g., a user for a purchase refund, Fragment for a withdrawal).
+	// Only for outgoing transactions
+	//
+	// optional
+	Reciever *TransactionPartner `json:"reciever,omitempty"`
+}
+
+// StarTransactions contains a list of Telegram Star transactions.
+type StarTransactions struct {
+	// The list of transactions
+	Transactions []StarTransaction `json:"transactions"`
 }

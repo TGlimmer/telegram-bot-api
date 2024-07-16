@@ -377,6 +377,7 @@ func (config ForwardMessagesConfig) method() string {
 }
 
 // CopyMessageConfig contains information about a copyMessage request.
+// Service messages, paid media messages, giveaway messages, giveaway winners messages, and invoice messages can't be copied.
 type CopyMessageConfig struct {
 	BaseChat
 	FromChat              ChatConfig
@@ -412,6 +413,7 @@ func (config CopyMessageConfig) method() string {
 }
 
 // CopyMessagesConfig contains information about a copyMessages request.
+// Service messages, paid media messages, giveaway messages, giveaway winners messages, and invoice messages can't be copied.
 type CopyMessagesConfig struct {
 	BaseChat
 	FromChat      ChatConfig
@@ -758,6 +760,58 @@ func (config VideoNoteConfig) files() []RequestFile {
 	}
 
 	return files
+}
+
+// Use this method to send paid media to channel chats. On success, the sent Message is returned.
+type PaidMediaConfig struct {
+	BaseChat
+	StarCount             int64
+	Media                 []InputPaidMedia
+	Caption               string          // optional
+	ParseMode             string          // optional
+	CaptionEntities       []MessageEntity // optional
+	ShowCaptionAboveMedia bool            // optional
+}
+
+func (config PaidMediaConfig) params() (Params, error) {
+	params, err := config.BaseChat.params()
+	if err != nil {
+		return params, err
+	}
+
+	params.AddNonZero64("star_count", config.StarCount)
+	params.AddNonEmpty("caption", config.Caption)
+	params.AddNonEmpty("parse_mode", config.ParseMode)
+	params.AddBool("show_caption_above_media", config.ShowCaptionAboveMedia)
+
+	err = params.AddInterface("media", config.Media)
+	if err != nil {
+		return params, err
+	}
+	err = params.AddInterface("caption_entities", config.CaptionEntities)
+	return params, err
+}
+
+func (config PaidMediaConfig) files() []RequestFile {
+	files := []RequestFile{}
+	for i, v := range config.Media {
+		files = append(files, RequestFile{
+			Name: fmt.Sprintf("%s-%d", v.Type, i),
+			Data: v.Media,
+		})
+		if v.Thumb != nil {
+			files = append(files, RequestFile{
+				Name: fmt.Sprintf("thumbnail-%d", i),
+				Data: v.Thumb,
+			})
+		}
+	}
+
+	return files
+}
+
+func (config PaidMediaConfig) method() string {
+	return "sendPaidMedia"
 }
 
 // VoiceConfig contains information about a SendVoice request.
@@ -2031,6 +2085,27 @@ func (config PreCheckoutConfig) params() (Params, error) {
 	params["pre_checkout_query_id"] = config.PreCheckoutQueryID
 	params.AddBool("ok", config.OK)
 	params.AddNonEmpty("error_message", config.ErrorMessage)
+
+	return params, nil
+}
+
+// Returns the bot's Telegram Star transactions in chronological order. On success, returns a StarTransactions object.
+type GetStarTransactionsConfig struct {
+	// Number of transactions to skip in the response
+	Offset int64
+	// The maximum number of transactions to be retrieved. Values between 1-100 are accepted. Defaults to 100.
+	Limit int64
+}
+
+func (config GetStarTransactionsConfig) method() string {
+	return "getStarTransactions"
+}
+
+func (config GetStarTransactionsConfig) params() (Params, error) {
+	params := make(Params)
+
+	params.AddNonZero64("offset", config.Offset)
+	params.AddNonZero64("limit", config.Limit)
 
 	return params, nil
 }
