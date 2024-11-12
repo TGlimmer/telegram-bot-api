@@ -1,4 +1,4 @@
-module github.com/TGlimmer/telegram-bot-api/v7
+module github.com/TGlimmer/telegram-bot-api
 
 retract (
     v5.0.0
