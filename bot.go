@@ -21,6 +21,147 @@ type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
+// Session 表示一个用户会话
+type Session struct {
+	UserID       int64                  // Telegram 用户 ID
+	ChatID       int64                  // 聊天 ID
+	State        string                 // 当前用户状态
+	Data         map[string]interface{} // 存储会话相关数据
+	LastActivity time.Time              // 最后活动时间
+}
+
+// SessionManager 管理用户会话
+type SessionManager struct {
+	sessions      map[int64]*Session // 用户ID到会话的映射
+	defaultTTL    time.Duration      // 会话默认超时时间
+	cleanupTicker *time.Ticker       // 定期清理过期会话的定时器
+	mu            sync.RWMutex       // 读写锁，保证线程安全
+}
+
+// NewSessionManager 创建一个新的会话管理器
+func NewSessionManager(defaultTTL time.Duration) *SessionManager {
+	sm := &SessionManager{
+		sessions:   make(map[int64]*Session),
+		defaultTTL: defaultTTL,
+	}
+
+	// 启动定期清理过期会话的 goroutine
+	sm.cleanupTicker = time.NewTicker(5 * time.Minute)
+	go sm.cleanupSessions()
+
+	return sm
+}
+
+// GetSession 获取用户会话，如果不存在则创建
+func (sm *SessionManager) GetSession(userID int64, chatID int64) *Session {
+	sm.mu.RLock()
+	session, exists := sm.sessions[userID]
+	sm.mu.RUnlock()
+
+	if !exists {
+		sm.mu.Lock()
+		// 双重检查，防止并发创建
+		session, exists = sm.sessions[userID]
+		if !exists {
+			session = &Session{
+				UserID:       userID,
+				ChatID:       chatID,
+				Data:         make(map[string]interface{}),
+				LastActivity: time.Now(),
+			}
+			sm.sessions[userID] = session
+		}
+		sm.mu.Unlock()
+	}
+
+	// 更新最后活动时间
+	session.LastActivity = time.Now()
+	return session
+}
+
+// SetState 设置用户状态
+func (sm *SessionManager) SetState(userID int64, state string) {
+	sm.mu.RLock()
+	session, exists := sm.sessions[userID]
+	sm.mu.RUnlock()
+
+	if exists {
+		session.State = state
+		session.LastActivity = time.Now()
+	}
+}
+
+// GetState 获取用户状态
+func (sm *SessionManager) GetState(userID int64) (string, bool) {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+
+	session, exists := sm.sessions[userID]
+	if !exists {
+		return "", false
+	}
+
+	return session.State, true
+}
+
+// SetData 在会话中存储数据
+func (sm *SessionManager) SetData(userID int64, key string, value interface{}) bool {
+	sm.mu.RLock()
+	session, exists := sm.sessions[userID]
+	sm.mu.RUnlock()
+
+	if !exists {
+		return false
+	}
+
+	session.Data[key] = value
+	session.LastActivity = time.Now()
+	return true
+}
+
+// GetData 从会话中获取数据
+func (sm *SessionManager) GetData(userID int64, key string) (interface{}, bool) {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+
+	session, exists := sm.sessions[userID]
+	if !exists {
+		return nil, false
+	}
+
+	value, exists := session.Data[key]
+	return value, exists
+}
+
+// ClearSession 清除用户会话
+func (sm *SessionManager) ClearSession(userID int64) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	delete(sm.sessions, userID)
+}
+
+// cleanupSessions 定期清理过期会话
+func (sm *SessionManager) cleanupSessions() {
+	for range sm.cleanupTicker.C {
+		sm.mu.Lock()
+		now := time.Now()
+		for userID, session := range sm.sessions {
+			if now.Sub(session.LastActivity) > sm.defaultTTL {
+				delete(sm.sessions, userID)
+			}
+		}
+		sm.mu.Unlock()
+	}
+}
+
+// Stop 停止会话管理器
+func (sm *SessionManager) Stop() {
+	if sm.cleanupTicker != nil {
+		sm.cleanupTicker.Stop()
+	}
+}
+
 // BotAPI allows you to interact with the Telegram Bot API.
 type BotAPI struct {
 	Token  string `json:"token"`
@@ -32,8 +173,9 @@ type BotAPI struct {
 
 	apiEndpoint string
 
-	stoppers []context.CancelFunc
-	mu       sync.RWMutex
+	SessionManager *SessionManager
+	stoppers       []context.CancelFunc
+	mu             sync.RWMutex
 }
 
 // NewBotAPI creates a new BotAPI instance.
@@ -57,11 +199,11 @@ func NewBotAPIWithAPIEndpoint(token, apiEndpoint string) (*BotAPI, error) {
 // It requires a token, provided by @BotFather on Telegram and API endpoint.
 func NewBotAPIWithClient(token, apiEndpoint string, client HTTPClient) (*BotAPI, error) {
 	bot := &BotAPI{
-		Token:  token,
-		Client: client,
-		Buffer: 100,
-
-		apiEndpoint: apiEndpoint,
+		Token:          token,
+		Client:         client,
+		Buffer:         100,
+		apiEndpoint:    apiEndpoint,
+		SessionManager: NewSessionManager(24 * time.Hour),
 	}
 
 	self, err := bot.GetMe()
