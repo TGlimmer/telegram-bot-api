@@ -26,6 +26,7 @@ type BaseChat struct {
 	DisableNotification  bool
 	MessageEffectID      string // for private chats only
 	ReplyParameters      ReplyParameters
+	AllowPaidBroadcast   bool // for channel posts only
 }
 
 func (chat *BaseChat) params() (Params, error) {
@@ -43,6 +44,7 @@ func (chat *BaseChat) params() (Params, error) {
 	params.AddBool("disable_notification", chat.DisableNotification)
 	params.AddBool("protect_content", chat.ProtectContent)
 	params.AddNonEmpty("message_effect_id", chat.MessageEffectID)
+	params.AddBool("allow_paid_broadcast", chat.AllowPaidBroadcast)
 
 	err = params.AddInterface("reply_markup", chat.ReplyMarkup)
 	if err != nil {
@@ -65,8 +67,8 @@ func (file BaseFile) params() (Params, error) {
 // BaseEdit is base type of all chat edits.
 type BaseEdit struct {
 	BaseChatMessage
-	InlineMessageID      string
-	ReplyMarkup          *InlineKeyboardMarkup
+	InlineMessageID string
+	ReplyMarkup     *InlineKeyboardMarkup
 }
 
 func (edit BaseEdit) params() (Params, error) {

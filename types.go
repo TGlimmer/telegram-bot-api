@@ -2520,6 +2520,10 @@ type InlineKeyboardButton struct {
 	//
 	// optional
 	CallbackGame *CallbackGame `json:"callback_game,omitempty"`
+	// CopyText if set, the text that will be copied when clicking on the button
+	//
+	// optional
+	CopyText *CopyTextButton `json:"copy_text,omitempty"`
 	// Pay specify True, to send a Pay button.
 	// Substrings “⭐” and “XTR” in the buttons's text will be replaced with a Telegram Star icon.
 	//
@@ -2527,6 +2531,14 @@ type InlineKeyboardButton struct {
 	//
 	// optional
 	Pay bool `json:"pay,omitempty"`
+}
+
+// CopyTextButton represents a button that allows users to copy text to clipboard
+// once clicked. This button appears below the message as a part of InlineKeyboardMarkup,
+// unlike text mention buttons, which are embedded in message text.
+type CopyTextButton struct {
+	// Text - The text to be copied to the clipboard; 1-256 characters
+	Text string `json:"text"`
 }
 
 // LoginURL represents a parameter of the inline keyboard button used to
@@ -5137,6 +5149,15 @@ type TransactionPartner struct {
 	// Represent only in "user" state
 	//
 	// optional
+	PaidMedia []PaidMedia `json:"paid_media,omitempty"`
+}
+
+// TransactionPartnerTelegramApi describes the Telegram API as the source of a transaction
+// This type is used when the transaction is a commission from a payment for paid media
+type TransactionPartnerTelegramApi struct {
+	// Type of the transaction partner. Must be "telegram_api"
+	Type string `json:"type"`
+	// Information about the paid media
 	PaidMedia []PaidMedia `json:"paid_media,omitempty"`
 }
 
