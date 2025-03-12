@@ -80,15 +80,18 @@ func (sm *SessionManager) GetSession(userID int64, chatID int64) *Session {
 }
 
 // SetState 设置用户状态
-func (sm *SessionManager) SetState(userID int64, state string) {
-	sm.mu.RLock()
-	session, exists := sm.sessions[userID]
-	sm.mu.RUnlock()
+func (sm *SessionManager) SetState(userID int64, state string) bool {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
 
-	if exists {
-		session.State = state
-		session.LastActivity = time.Now()
+	session, exists := sm.sessions[userID]
+	if !exists {
+		return false
 	}
+
+	session.State = state
+	session.LastActivity = time.Now()
+	return true
 }
 
 // GetState 获取用户状态
