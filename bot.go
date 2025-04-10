@@ -21,7 +21,7 @@ type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-// Session 表示一个用户会话
+// Session Struct
 type Session struct {
 	UserID       int64                  // Telegram 用户 ID
 	ChatID       int64                  // 聊天 ID
@@ -30,7 +30,7 @@ type Session struct {
 	LastActivity time.Time              // 最后活动时间
 }
 
-// SessionManager 管理用户会话
+// SessionManager Struct
 type SessionManager struct {
 	sessions      map[int64]*Session // 用户ID到会话的映射
 	defaultTTL    time.Duration      // 会话默认超时时间
@@ -38,21 +38,21 @@ type SessionManager struct {
 	mu            sync.RWMutex       // 读写锁，保证线程安全
 }
 
-// NewSessionManager 创建一个新的会话管理器
+// NewSessionManager Create a new session manager
 func NewSessionManager(defaultTTL time.Duration) *SessionManager {
 	sm := &SessionManager{
 		sessions:   make(map[int64]*Session),
 		defaultTTL: defaultTTL,
 	}
 
-	// 启动定期清理过期会话的 goroutine
+	// Start a goroutine to clean up expired sessions
 	sm.cleanupTicker = time.NewTicker(5 * time.Minute)
 	go sm.cleanupSessions()
 
 	return sm
 }
 
-// GetSession 获取用户会话，如果不存在则创建
+// GetSession Get user session, create if not exists
 func (sm *SessionManager) GetSession(userID int64, chatID int64) *Session {
 	sm.mu.RLock()
 	session, exists := sm.sessions[userID]
@@ -60,7 +60,7 @@ func (sm *SessionManager) GetSession(userID int64, chatID int64) *Session {
 
 	if !exists {
 		sm.mu.Lock()
-		// 双重检查，防止并发创建
+		// Double check, prevent concurrent creation
 		session, exists = sm.sessions[userID]
 		if !exists {
 			session = &Session{
@@ -74,12 +74,12 @@ func (sm *SessionManager) GetSession(userID int64, chatID int64) *Session {
 		sm.mu.Unlock()
 	}
 
-	// 更新最后活动时间
+	// Update last activity time
 	session.LastActivity = time.Now()
 	return session
 }
 
-// SetState 设置用户状态
+// SetState Set user state
 func (sm *SessionManager) SetState(userID int64, state string) bool {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
@@ -94,7 +94,7 @@ func (sm *SessionManager) SetState(userID int64, state string) bool {
 	return true
 }
 
-// GetState 获取用户状态
+// GetState Get user state
 func (sm *SessionManager) GetState(userID int64) (string, bool) {
 	sm.mu.RLock()
 	defer sm.mu.RUnlock()
@@ -107,7 +107,7 @@ func (sm *SessionManager) GetState(userID int64) (string, bool) {
 	return session.State, true
 }
 
-// SetData 在会话中存储数据
+// SetData Set data in session
 func (sm *SessionManager) SetData(userID int64, key string, value interface{}) bool {
 	sm.mu.RLock()
 	session, exists := sm.sessions[userID]
@@ -122,7 +122,7 @@ func (sm *SessionManager) SetData(userID int64, key string, value interface{}) b
 	return true
 }
 
-// GetData 从会话中获取数据
+// GetData Get data from session
 func (sm *SessionManager) GetData(userID int64, key string) (interface{}, bool) {
 	sm.mu.RLock()
 	defer sm.mu.RUnlock()
@@ -136,7 +136,7 @@ func (sm *SessionManager) GetData(userID int64, key string) (interface{}, bool) 
 	return value, exists
 }
 
-// ClearSession 清除用户会话
+// ClearSession Clear user session
 func (sm *SessionManager) ClearSession(userID int64) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
@@ -144,7 +144,7 @@ func (sm *SessionManager) ClearSession(userID int64) {
 	delete(sm.sessions, userID)
 }
 
-// cleanupSessions 定期清理过期会话
+// cleanupSessions Clean up expired sessions periodically
 func (sm *SessionManager) cleanupSessions() {
 	for range sm.cleanupTicker.C {
 		sm.mu.Lock()
@@ -158,7 +158,7 @@ func (sm *SessionManager) cleanupSessions() {
 	}
 }
 
-// Stop 停止会话管理器
+// Stop Stop session manager
 func (sm *SessionManager) Stop() {
 	if sm.cleanupTicker != nil {
 		sm.cleanupTicker.Stop()
