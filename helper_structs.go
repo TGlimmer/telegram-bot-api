@@ -24,6 +24,7 @@ type BaseChat struct {
 	ProtectContent       bool
 	ReplyMarkup          interface{}
 	DisableNotification  bool
+	AllowPaidBroadcast   bool
 	MessageEffectID      string // for private chats only
 	ReplyParameters      ReplyParameters
 	AllowPaidBroadcast   bool // for channel posts only
@@ -42,6 +43,7 @@ func (chat *BaseChat) params() (Params, error) {
 
 	params.AddNonZero("message_thread_id", chat.MessageThreadID)
 	params.AddBool("disable_notification", chat.DisableNotification)
+	params.AddBool("allow_paid_broadcast", chat.AllowPaidBroadcast)
 	params.AddBool("protect_content", chat.ProtectContent)
 	params.AddNonEmpty("message_effect_id", chat.MessageEffectID)
 	params.AddBool("allow_paid_broadcast", chat.AllowPaidBroadcast)
